@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Clock</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400&display=swap" rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      background: #0A0A0A;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    /* ── Stage ── */
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+    
+    /* ── City ── */
+    #city {
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      color: #C9A96E;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      min-height: 14px;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    
+    #city.show {
+      opacity: 1;
+    }
+    
+    /* ── HH:MM ── */
+    #hm {
+      font-size: clamp(96px, 26vw, 130px);
+      font-weight: 200;
+      letter-spacing: -0.03em;
+      color: #F2EFE9;
+      line-height: 1;
+      /* no animation, instant render */
+    }
+    
+    /* ── Seconds + AM/PM ── */
+    #sec-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    #secs {
+      font-size: 42px;
+      font-weight: 200;
+      letter-spacing: 0.04em;
+      color: rgba(242, 239, 233, 0.55);
+      min-width: 64px;
+      text-align: center;
+    }
+    
+    #ampm {
+      font-size: 13px;
+      font-weight: 300;
+      letter-spacing: 0.14em;
+      color: rgba(242, 239, 233, 0.3);
+      text-transform: uppercase;
+      align-self: flex-end;
+      padding-bottom: 6px;
+    }
+    
+    /* ── Date ── */
+    #date {
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      color: rgba(242, 239, 233, 0.22);
+      text-transform: uppercase;
+      margin-top: 24px;
+    }
+    
+    /* ── Bottom button ── */
+    #btn-wrap {
+      position: fixed;
+      bottom: 52px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.22, 1, .36, 1);
+      z-index: 5;
+    }
+    
+    #btn-wrap.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: all;
+    }
+    
+    #tz-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 50px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: rgba(242, 239, 233, 0.6);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 300;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+      white-space: nowrap;
+    }
+    
+    #tz-btn:active {
+      background: rgba(201, 169, 110, 0.12);
+      border-color: rgba(201, 169, 110, 0.3);
+      color: #C9A96E;
+    }
+    
+    .btn-icon {
+      width: 14px;
+      height: 14px;
+      opacity: 0.5;
+    }
+    
+    /* ── Overlay ── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 9;
+    }
+    
+    #overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+    
+    /* ── Sheet ── */
+    #sheet {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #141414;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 20px 20px 0 0;
+      padding-bottom: 48px;
+      transform: translateY(100%);
+      transition: transform 0.45s cubic-bezier(.32, 1, .38, 1);
+      z-index: 10;
+    }
+    
+    #sheet.open {
+      transform: translateY(0);
+    }
+    
+    .handle {
+      width: 32px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      margin: 12px auto 0;
+    }
+    
+    .sheet-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 22px 12px;
+    }
+    
+    .sheet-title {
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.3);
+    }
+    
+    .sheet-close {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.07);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.2s;
+    }
+    
+    .sheet-close:active {
+      background: rgba(255, 255, 255, 0.14);
+    }
+    
+    .sheet-close svg {
+      opacity: 0.4;
+    }
+    
+    .sheet-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.05);
+      margin: 0 0 4px;
+    }
+    
+    #tz-list {
+      max-height: 55vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 2px 8px;
+    }
+    
+    #tz-list::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .tz-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 13px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.2s;
+    }
+    
+    .tz-item:active {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .tz-city {
+      font-size: 16px;
+      font-weight: 300;
+      color: rgba(242, 239, 233, 0.65);
+      letter-spacing: 0.01em;
+      transition: color 0.25s;
+    }
+    
+    .tz-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .tz-time {
+      font-size: 14px;
+      font-weight: 200;
+      color: rgba(242, 239, 233, 0.22);
+      letter-spacing: 0.04em;
+      transition: color 0.25s;
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .tz-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #C9A96E;
+      opacity: 0;
+      transition: opacity 0.25s;
+      flex-shrink: 0;
+    }
+    
+    .tz-item.selected .tz-city {
+      color: #F2EFE9;
+      font-weight: 400;
+    }
+    
+    .tz-item.selected .tz-time {
+      color: rgba(201, 169, 110, 0.6);
+    }
+    
+    .tz-item.selected .tz-dot {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  
+  <div id="stage">
+    <div id="city"></div>
+    <div id="hm">--:--</div>
+    <div id="sec-row">
+      <div id="secs">--</div>
+      <div id="ampm"></div>
+    </div>
+    <div id="date"></div>
+  </div>
+  
+  <div id="btn-wrap">
+    <button id="tz-btn">
+      <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2">
+        <circle cx="8" cy="8" r="6.5" />
+        <path d="M8 1.5C8 1.5 5.5 4.5 5.5 8s2.5 6.5 2.5 6.5M8 1.5C8 1.5 10.5 4.5 10.5 8S8 14.5 8 14.5M1.5 8h13" />
+      </svg>
+      Time Zone
+    </button>
+  </div>
+  
+  <div id="overlay"></div>
+  
+  <div id="sheet">
+    <div class="handle"></div>
+    <div class="sheet-head">
+      <span class="sheet-title">Select Time Zone</span>
+      <button class="sheet-close" id="closeBtn">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round">
+          <line x1="1" y1="1" x2="9" y2="9" />
+          <line x1="9" y1="1" x2="1" y2="9" />
+        </svg>
+      </button>
+    </div>
+    <div class="sheet-divider"></div>
+    <div id="tz-list"></div>
+  </div>
+  
+  <script>
+    const ZONES = [
+      { city: "Local", tz: null },
+      { city: "New York", tz: "America/New_York" },
+      { city: "Los Angeles", tz: "America/Los_Angeles" },
+      { city: "Chicago", tz: "America/Chicago" },
+      { city: "London", tz: "Europe/London" },
+      { city: "Paris", tz: "Europe/Paris" },
+      { city: "Dubai", tz: "Asia/Dubai" },
+      { city: "Mumbai", tz: "Asia/Kolkata" },
+      { city: "Singapore", tz: "Asia/Singapore" },
+      { city: "Tokyo", tz: "Asia/Tokyo" },
+      { city: "Sydney", tz: "Australia/Sydney" },
+      { city: "São Paulo", tz: "America/Sao_Paulo" },
+    ];
+    
+    let selected = 0;
+    let sheetOpen = false;
+    let uiVisible = false;
+    let hideTimer = null;
+    
+    const hmEl = document.getElementById('hm');
+    const secsEl = document.getElementById('secs');
+    const ampmEl = document.getElementById('ampm');
+    const cityEl = document.getElementById('city');
+    const dateEl = document.getElementById('date');
+    const btnWrap = document.getElementById('btn-wrap');
+    const tzBtn = document.getElementById('tz-btn');
+    const sheet = document.getElementById('sheet');
+    const overlay = document.getElementById('overlay');
+    const listEl = document.getElementById('tz-list');
+    
+    // ── Fast time using Date directly ──
+    function getT(tz) {
+      const now = new Date();
+      if (!tz) {
+        const h = now.getHours();
+        const m = now.getMinutes();
+        const s = now.getSeconds();
+        const ap = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        return {
+          hm: pad(h12) + ':' + pad(m),
+          sec: pad(s),
+          ampm: ap,
+          date: days[now.getDay()] + '  ' + months[now.getMonth()] + ' ' + now.getDate()
+        };
+      }
+      // For other timezones, use Intl
+      const p = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      }).formatToParts(now);
+      const g = t => p.find(x => x.type === t)?.value ?? '';
+      return {
+        hm: g('hour') + ':' + g('minute'),
+        sec: g('second'),
+        ampm: g('dayPeriod'),
+        date: g('weekday') + '  ' + g('month') + ' ' + g('day')
+      };
+    }
+    
+    function getListTime(tz) {
+      const now = new Date();
+      const p = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz || undefined,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).formatToParts(now);
+      const g = t => p.find(x => x.type === t)?.value ?? '';
+      return g('hour') + ':' + g('minute') + ' ' + g('dayPeriod');
+    }
+    
+    function pad(n) { return String(n).padStart(2, '0'); }
+    
+    // ── Tick: runs every 200ms for responsiveness ──
+    let lastSec = null;
+    
+    function tick() {
+      const t = getT(ZONES[selected].tz);
+      hmEl.textContent = t.hm;
+      ampmEl.textContent = t.ampm;
+      dateEl.textContent = t.date;
+      if (t.sec !== lastSec) {
+        secsEl.textContent = t.sec;
+        lastSec = t.sec;
+      }
+    }
+    
+    // ── Build list ──
+    function buildList() {
+      listEl.innerHTML = '';
+      ZONES.forEach((z, i) => {
+        const el = document.createElement('div');
+        el.className = 'tz-item' + (i === selected ? ' selected' : '');
+        const lt = getListTime(z.tz);
+        el.innerHTML =
+          `<span class="tz-city">${z.city}</span>
+       <div class="tz-right"><span class="tz-time">${lt}</span><span class="tz-dot"></span></div>`;
+        el.addEventListener('click', () => pick(i));
+        listEl.appendChild(el);
+      });
+    }
+    
+    function pick(i) {
+      selected = i;
+      const name = ZONES[i].city === 'Local' ? '' : ZONES[i].city;
+      cityEl.classList.remove('show');
+      setTimeout(() => {
+        cityEl.textContent = name;
+        if (name) cityEl.classList.add('show');
+      }, 200);
+      tick();
+      closeSheet();
+    }
+    
+    // ── UI visibility ──
+    function showUI() {
+      uiVisible = true;
+      btnWrap.classList.add('show');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hideUI, 3500);
+    }
+    
+    function hideUI() {
+      if (sheetOpen) return;
+      uiVisible = false;
+      btnWrap.classList.remove('show');
+    }
+    
+    // ── Sheet ──
+    function openSheet() {
+      sheetOpen = true;
+      clearTimeout(hideTimer);
+      buildList();
+      sheet.classList.add('open');
+      overlay.classList.add('show');
+      btnWrap.classList.remove('show');
+    }
+    
+    function closeSheet() {
+      sheetOpen = false;
+      sheet.classList.remove('open');
+      overlay.classList.remove('show');
+    }
+    
+    // ── Events ──
+    document.getElementById('stage').addEventListener('click', () => {
+      if (!sheetOpen) showUI();
+    });
+    
+    tzBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSheet();
+    });
+    
+    document.getElementById('closeBtn').addEventListener('click', closeSheet);
+    overlay.addEventListener('click', closeSheet);
+    
+    let ty0 = 0;
+    sheet.addEventListener('touchstart', e => { ty0 = e.touches[0].clientY; }, { passive: true });
+    sheet.addEventListener('touchmove', e => { if (e.touches[0].clientY - ty0 > 60) closeSheet(); }, { passive: true });
+    
+    // ── Boot ──
+    tick();
+    setInterval(tick, 200);
+  </script>
+</body>
+
+</html>
